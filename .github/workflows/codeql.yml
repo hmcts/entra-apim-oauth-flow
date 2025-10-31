@@ -1,9 +1,10 @@
 name: CodeQL
 
 on:
+  push:
+    branches: [ main ]
   pull_request:
     branches:
-      - master
       - main
 
   schedule:
@@ -47,14 +48,19 @@ jobs:
       with:
         gradle-version: current
 
-    - name: Gradle Build and Publish
+    # Build the code so CodeQL can analyze it during compilation
+    # Compile classes but skip test execution (CodeQL only needs compiled code, not running tests)
+    - name: Build code
+      run: gradle compileJava compileTestJava --no-daemon
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        gradle build cyclonedxBom -x test \
-          -DGITHUB_REPOSITORY=${{ github.repository }} \
-          -DGITHUB_ACTOR=${{ github.actor }} \
-          -DGITHUB_TOKEN=$GITHUB_TOKEN
+        # Set dummy values for required environment variables during static analysis
+        # CodeQL only needs the code to compile, not actual credentials
+        TENANT_ID: "dummy-tenant-id"
+        CLIENT_ID: "dummy-client-id"
+        CLIENT_SECRET: "dummy-client-secret"
+        API_APP_ID_URI: "api://dummy"
+        APIM_BASE_URL: "https://dummy.example.com"
+        SLUG: "/dummy/path"
 
     # ℹ️ Command-line programs to run using the OS shell.
     # 📚 See https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun
@@ -65,15 +71,13 @@ jobs:
       with:
         category: "/language:${{matrix.language}}"
 
-    - name: Log generated SBOM Hash
-      run: sha256sum build/reports/bom.json || true
-
-      # This ensures:
-      # - The SBOM is archived with the CodeQL scan output
-      # - It's available to download and inspect from the GitHub Actions UI
-    - name: Upload SBOM
-      if: always()
-      uses: actions/upload-artifact@v4
+    - uses: pmd/pmd-github-action@v2
+      id: pmd
       with:
-        name: sbom
-        path: build/reports/bom.json
+        rulesets: '.github/pmd-ruleset.xml'
+        analyzeModifiedFilesOnly: false
+        sourcePath: 'src/test/java'
+
+    - name: Fail build if there are violations
+      if: steps.pmd.outputs.violations != 0
+      run: exit 1

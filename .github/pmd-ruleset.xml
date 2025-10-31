@@ -7,7 +7,11 @@
 
     <description>Custom ruleset including exclusions</description>
 
-    <rule ref="category/java/bestpractices.xml"/>
+    <rule ref="category/java/bestpractices.xml">
+        <exclude name="GuardLogStatement"/>
+        <exclude name="UnitTestAssertionsShouldIncludeMessage"/>
+        <exclude name="UnitTestContainsTooManyAsserts"/>
+    </rule>
     <rule ref="category/java/codestyle.xml">
         <exclude name="AtLeastOneConstructor"/>
     </rule>

@@ -59,17 +59,33 @@ dependencies {
 
     // JWT parsing
     testImplementation 'com.auth0:java-jwt:4.5.0'
+
+    // Logging - SLF4J API
+    implementation 'org.slf4j:slf4j-api:2.0.13'
+    
+    // Logback implementation
+    implementation 'ch.qos.logback:logback-classic:1.5.6'
+    testImplementation 'ch.qos.logback:logback-classic:1.5.6'
 }
 
 test {
     useJUnitPlatform()
-
-    // Environment variable pass-through for credentials
-    environment "TENANT_ID", System.getenv("TENANT_ID")
-    environment "CLIENT_ID", System.getenv("CLIENT_ID")
-    environment "CLIENT_SECRET", System.getenv("CLIENT_SECRET")
-    environment "API_APP_ID_URI", System.getenv("API_APP_ID_URI")
-    environment "APIM_BASE_URL", System.getenv("APIM_BASE_URL")
-    environment "SUBSCRIPTION_KEY", System.getenv("SUBSCRIPTION_KEY")
-    environment "SLUG", System.getenv("SLUG")
+    
+    // Show test output and logs on console
+    testLogging {
+        events "passed", "skipped", "failed", "standard_out", "standard_error"
+        exceptionFormat "full"
+        showStandardStreams = true
+        showExceptions = true
+        showCauses = true
+        showStackTraces = true
+        // Show output even when tests pass
+        info {
+            events "passed", "skipped", "failed"
+            exceptionFormat "full"
+        }
+    }
+    
+    // Ensure output is not buffered
+    outputs.upToDateWhen { false }
 }
