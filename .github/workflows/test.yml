@@ -1,0 +1,129 @@
+name: Run Tests
+
+on:
+  workflow_call:
+    inputs:
+      tenant_id:
+        description: 'Azure AD Tenant ID'
+        required: true
+        type: string
+      client_id:
+        description: 'Azure AD Client ID'
+        required: true
+        type: string
+      client_secret:
+        description: 'Azure AD Client Secret'
+        required: true
+        type: string
+      api_app_id_uri:
+        description: 'API App ID URI (e.g., api://my-apim)'
+        required: true
+        type: string
+      apim_base_url:
+        description: 'APIM Base URL (e.g., https://myapim.azure-api.net)'
+        required: true
+        type: string
+      subscription_key:
+        description: 'APIM Subscription Key (optional)'
+        required: false
+        type: string
+      slug:
+        description: 'API slug/path for the endpoint (e.g., /amp-oauth/case/C9LJXVS5NQ/courtschedule)'
+        required: true
+        type: string
+    secrets:
+      tenant_id:
+        description: 'Azure AD Tenant ID'
+        required: false
+      client_id:
+        description: 'Azure AD Client ID'
+        required: false
+      client_secret:
+        description: 'Azure AD Client Secret'
+        required: false
+      api_app_id_uri:
+        description: 'API App ID URI'
+        required: false
+      apim_base_url:
+        description: 'APIM Base URL'
+        required: false
+      subscription_key:
+        description: 'APIM Subscription Key'
+        required: false
+      slug:
+        description: 'API slug/path for the endpoint'
+        required: false
+  workflow_dispatch:
+    inputs:
+      tenant_id:
+        description: 'Azure AD Tenant ID'
+        required: true
+        type: string
+      client_id:
+        description: 'Azure AD Client ID'
+        required: true
+        type: string
+      client_secret:
+        description: 'Azure AD Client Secret'
+        required: true
+        type: string
+      api_app_id_uri:
+        description: 'API App ID URI (e.g., api://my-apim)'
+        required: true
+        type: string
+      apim_base_url:
+        description: 'APIM Base URL (e.g., https://myapim.azure-api.net)'
+        required: true
+        type: string
+      subscription_key:
+        description: 'APIM Subscription Key (optional)'
+        required: false
+        type: string
+      slug:
+        description: 'API slug/path for the endpoint (e.g., /amp-oauth/case/C9LJXVS5NQ/courtschedule)'
+        required: true
+        type: string
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      # For reusable workflow: prefer secrets over inputs (secrets are masked in logs)
+      # For direct triggers: use repository secrets or workflow_dispatch inputs
+      TENANT_ID: ${{ secrets.tenant_id || inputs.tenant_id || secrets.TENANT_ID || github.event.inputs.tenant_id }}
+      CLIENT_ID: ${{ secrets.client_id || inputs.client_id || secrets.CLIENT_ID || github.event.inputs.client_id }}
+      CLIENT_SECRET: ${{ secrets.client_secret || inputs.client_secret || secrets.CLIENT_SECRET || github.event.inputs.client_secret }}
+      API_APP_ID_URI: ${{ secrets.api_app_id_uri || inputs.api_app_id_uri || secrets.API_APP_ID_URI || github.event.inputs.api_app_id_uri }}
+      APIM_BASE_URL: ${{ secrets.apim_base_url || inputs.apim_base_url || secrets.APIM_BASE_URL || github.event.inputs.apim_base_url }}
+      SUBSCRIPTION_KEY: ${{ secrets.subscription_key || inputs.subscription_key || secrets.SUBSCRIPTION_KEY || github.event.inputs.subscription_key || '' }}
+      SLUG: ${{ secrets.slug || inputs.slug || secrets.SLUG || github.event.inputs.slug }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Run tests with Gradle
+        run: ./gradlew test --no-daemon
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            build/test-results/**/*.xml
+            build/reports/tests/**/*
+

@@ -1,0 +1,75 @@
+plugins {
+    id 'java'
+    id 'pmd'
+}
+
+group = 'uk.gov.hmcts.cp'
+version = System.getProperty('ENTRA_APIM_OAUTH_FLOW') ?: '0.0.999'
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    def javaVersion = JavaVersion.toVersion(System.getProperty("java.version"))
+    sourceCompatibility = javaVersion
+    targetCompatibility = javaVersion
+}
+
+def formatterUrl = 'https://raw.githubusercontent.com/hmcts/api-cp-code-style/refs/heads/main/config/formatter/eclipse-formatter.xml'
+def formatterPath = "${layout.buildDirectory.get().asFile.absolutePath}/eclipse-formatter.xml"
+tasks.register('downloadFormatter') {
+    outputs.file(formatterPath)
+    doLast {
+        def file = new File(formatterPath)
+        file.parentFile.mkdirs()
+        file.text = new URI(formatterUrl).toURL().text
+    }
+}
+
+tasks.withType(Checkstyle).configureEach {
+    def generatedDir = file("${layout.buildDirectory.get().asFile.absolutePath}/generated/src/main/java").canonicalPath
+    source = source.filter { file ->
+        !file.canonicalPath.startsWith(generatedDir)
+    }
+}
+
+tasks.withType(Pmd) {
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+}
+tasks.named("pmdMain").configure {
+    onlyIf { gradle.startParameter.taskNames.contains(name) }
+}
+tasks.named("pmdTest").configure { enabled = true }
+
+dependencies {
+    // JUnit 5 testing framework
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // REST API testing client
+    testImplementation 'io.rest-assured:rest-assured:5.4.0'
+
+    // JSON parsing for decoding token payloads
+    testImplementation 'org.json:json:20240303'
+
+    // JWT parsing
+    testImplementation 'com.auth0:java-jwt:4.5.0'
+}
+
+test {
+    useJUnitPlatform()
+
+    // Environment variable pass-through for credentials
+    environment "TENANT_ID", System.getenv("TENANT_ID")
+    environment "CLIENT_ID", System.getenv("CLIENT_ID")
+    environment "CLIENT_SECRET", System.getenv("CLIENT_SECRET")
+    environment "API_APP_ID_URI", System.getenv("API_APP_ID_URI")
+    environment "APIM_BASE_URL", System.getenv("APIM_BASE_URL")
+    environment "SUBSCRIPTION_KEY", System.getenv("SUBSCRIPTION_KEY")
+    environment "SLUG", System.getenv("SLUG")
+}
