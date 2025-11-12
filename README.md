@@ -61,58 +61,20 @@ Or run specific tests:
 ./gradlew test --tests "uk.gov.hmcts.cp.ApimTokenValidationSmokeTest"
 ```
 
-## Manual Environment Variable Setup
-
-If you prefer not to use direnv, you can set environment variables manually:
-
-### macOS/Linux
-```bash
-export TENANT_ID="your-tenant-id"
-export CLIENT_ID="your-client-id"
-export CLIENT_SECRET="your-client-secret"
-export API_APP_ID_URI="your-api-app-id-uri"
-export APIM_BASE_URL="https://your-apim.azure-api.net"
-export SLUG="/amp-oauth/case/C9LJXVS5NQ/courtschedule"
-export SUBSCRIPTION_KEY="optional-subscription-key"
-```
-
-## IntelliJ IDEA Setup
-
-### Option 1: Using direnv (Recommended)
-
-1. Install the [direnv plugin](https://plugins.jetbrains.com/plugin/19285-direnv) in IntelliJ IDEA
-2. Enable the plugin: Settings → Plugins → Search "direnv" → Install & Enable
-3. Restart IntelliJ IDEA
-4. The plugin will automatically load environment variables from `.envrc` when you open the project
-
-### Option 2: Manual Configuration
-
-1. Go to Run → Edit Configurations...
-2. Create or edit your test configuration
-3. Under "Environment variables", add:
-   - `TENANT_ID`
-   - `CLIENT_ID`
-   - `CLIENT_SECRET`
-   - `API_APP_ID_URI`
-   - `APIM_BASE_URL`
-   - `SLUG`
-   - `SUBSCRIPTION_KEY` (optional)
-
-Alternatively, you can set them at the project level:
-- Settings → Build, Execution, Deployment → Build Tools → Gradle
-- Under "Gradle JVM" and environment variables
-
 ## Required Environment Variables
 
 | Variable | Required | Description | Example                                    |
 |----------|----------|-------------|--------------------------------------------|
-| `TENANT_ID` | Yes | Azure AD Tenant ID | `***********`                              |
-| `CLIENT_ID` | Yes | Azure AD Client ID (Application ID) | `***********`                              |
-| `CLIENT_SECRET` | Yes | Azure AD Client Secret | `*********`                                |
-| `API_APP_ID_URI` | Yes | API App ID URI | `api://my-apim`                            |
-| `APIM_BASE_URL` | Yes | APIM Base URL | `https://myapim.azure-api.net`             |
-| `SLUG` | Yes | API endpoint path/slug | `/amp-oauth/case/C9LJXVS5NQ/courtschedule` |
-| `SUBSCRIPTION_KEY` | No | APIM Subscription Key | `optional-api-key`                         |
+|-------------|----------|----------------------------------------------------------------------|
+| `TENANT_ID` | ✅ Yes | Azure AD Tenant ID                                                   |
+| `CLIENT_ID` | ✅ Yes | Azure AD Client ID (Application ID)                                  |
+| `CLIENT_SECRET` | ✅ Yes | Azure AD Client Secret                                               |
+| `API_APP_ID_URI` | ✅ Yes | API App ID URI (e.g., `api://my-apim`)                               |
+| `APIM_BASE_URL` | ✅ Yes | APIM Base URL (e.g., `https://myapim.azure-api.net`)                 |
+| `SLUG` | ✅ Yes | API endpoint path (e.g., `/amp-oauth/case/C9LJXVS5NQ/courtschedule`) |
+| `SUBSCRIPTION_KEY` | ✅ Yes | APIM Subscription Key                                                |
+| `WAF_BASE_URL` | ✅ Yes | Publically accessible WAF Base URL                                   |
+| `WAF_SLUG` | ✅ Yes | API endpoint path                                                    |
 
 ## Running Tests
 
@@ -120,17 +82,6 @@ Alternatively, you can set them at the project level:
 ```bash
 ./gradlew test
 ```
-
-### Specific Test Class
-```bash
-./gradlew test --tests "uk.gov.hmcts.cp.ApimTokenValidationSmokeTest"
-```
-
-### Specific Test Method
-```bash
-./gradlew test --tests "uk.gov.hmcts.cp.ApimTokenValidationSmokeTest.canGetAccessTokenFromEntra"
-```
-
 ### With Test Reports
 Test reports are generated in `build/reports/tests/test/index.html`
 
@@ -147,6 +98,87 @@ Test reports are generated in `build/reports/tests/test/index.html`
 
 The tests use relaxed HTTPS validation to handle certificate chain issues. If you encounter PKIX errors, ensure the SSL configuration in the test setup is applied.
 
-## GitHub Actions
+## GitHub Actions Integration
 
-This project includes a reusable GitHub Actions workflow. See [.github/workflows/README.md](.github/workflows/README.md) for details on using the workflow in client projects.
+This project provides a reusable GitHub Actions workflow that client projects can include in their CI/CD pipelines to run Entra APIM OAuth validation tests.
+
+### Setting Up in Client Projects
+
+#### Step 1: Create Workflow File
+
+Create a new workflow file in your client project at `.github/workflows/test-entra-apim.yml`:
+
+```yaml
+name: Test Entra APIM OAuth
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    uses: hmcts/entra-apim-oauth-flow/.github/workflows/test.yml@main
+    secrets:
+      tenant_id: ${{ secrets.TENANT_ID }}
+      client_id: ${{ secrets.CLIENT_ID }}
+      client_secret: ${{ secrets.CLIENT_SECRET }}
+      api_app_id_uri: ${{ secrets.API_APP_ID_URI }}
+      apim_base_url: ${{ secrets.APIM_BASE_URL }}
+      subscription_key: ${{ secrets.SUBSCRIPTION_KEY }}
+      slug: ${{ secrets.SLUG }}
+      waf_base_url: ${{ secrets.WAF_BASE_URL }}
+      waf_slug: ${{ secrets.WAF_SLUG }}
+    with:
+      tenant_id: ${{ secrets.TENANT_ID }}
+      client_id: ${{ secrets.CLIENT_ID }}
+      client_secret: ${{ secrets.CLIENT_SECRET }}
+      api_app_id_uri: ${{ secrets.API_APP_ID_URI }}
+      apim_base_url: ${{ secrets.APIM_BASE_URL }}
+      subscription_key: ${{ secrets.SUBSCRIPTION_KEY }}
+      slug: ${{ secrets.SLUG }}
+      waf_base_url: ${{ secrets.WAF_BASE_URL }}
+      waf_slug: ${{ secrets.WAF_SLUG }}
+```
+
+#### Step 2: Configure Repository Secrets
+
+In your client project's GitHub repository, navigate to:
+**Settings → Secrets and variables → Actions → New repository secret**
+
+Add all environment variables as secrets
+
+#### Step 3: Verify Workflow
+
+1. Push the workflow file to your repository
+2. Go to the **Actions** tab in your GitHub repository
+3. The workflow will run automatically on pushes to `main`/`master` and on pull requests
+4. You can also manually trigger it via **Actions → Test Entra APIM OAuth → Run workflow**
+
+### Workflow Behavior
+
+- **Automatic triggers**: Runs on push to `main`/`master` and on pull requests
+- **Manual trigger**: Can be run manually via `workflow_dispatch`
+- **Test artifacts**: Test results and reports are automatically uploaded and can be downloaded from the workflow run page
+- **Java version**: Uses Java 21 (Temurin distribution)
+- **Test execution**: Runs all tests in the `ApimTokenValidationSmokeTest` class
+
+### Troubleshooting
+
+**Workflow not running:**
+- Ensure the workflow file is in `.github/workflows/` directory
+- Check that the file has `.yml` or `.yaml` extension
+- Verify the workflow file syntax is valid YAML
+
+**Tests failing:**
+- Verify all required secrets are configured in your repository
+- Check the workflow logs for specific error messages
+- Ensure your Azure AD credentials are valid and have the necessary permissions
+
+**Permission errors:**
+- Ensure the reusable workflow has permission to be called (GitHub may require approval for first-time use)
+- Check repository settings for workflow permissions
+
+For more detailed documentation, see [.github/workflows/README.md](.github/workflows/README.md).

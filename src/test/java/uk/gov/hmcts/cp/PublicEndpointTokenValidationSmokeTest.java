@@ -7,7 +7,6 @@ import io.restassured.config.SSLConfig;
 import io.restassured.response.Response;
 import org.json.JSONObject;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,18 +20,18 @@ import java.util.function.UnaryOperator;
 import static io.restassured.RestAssured.given;
 import static org.junit.jupiter.api.Assertions.*;
 
-@Disabled("Can't be run as part of github action  test job as APIM is not accessible over internet")
-class ApimTokenValidationSmokeTest {
+class PublicEndpointTokenValidationSmokeTest {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ApimTokenValidationSmokeTest.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(PublicEndpointTokenValidationSmokeTest.class);
 
     public static final int JWT_PARTS = 3;
+    public static final String SUBS_KEY_HEADER = "Ocp-Apim-Subscription-Key";
     private static String tenantId;
     private static String clientId;
     private static String clientSecret;
     private static String apiAppIdUri;
-    private static String apimBaseUrl;
-    private static String slug;
+    private static String wafBaseUrl;
+    private static String wafSlug;
     private static String subscriptionKey;
 
     @BeforeAll
@@ -41,10 +40,10 @@ class ApimTokenValidationSmokeTest {
         clientId = Environment.require("CLIENT_ID");
         clientSecret = Environment.require("CLIENT_SECRET");
         apiAppIdUri = Environment.require("API_APP_ID_URI");   // e.g. api://my-apim
-        apimBaseUrl = Environment.require("APIM_BASE_URL");     // e.g. https://myapim.azure-api.net
-        slug = Environment.require("SLUG");
+        wafBaseUrl = Environment.require("WAF_BASE_URL");
+        wafSlug = Environment.require("WAF_SLUG");
         subscriptionKey = Environment.require("SUBSCRIPTION_KEY");
-        LOGGER.info("Running tests against APIM at {}", apimBaseUrl);
+        LOGGER.info("Running tests against WAF at {}", wafBaseUrl);
 
         // Configure SSL to use relaxed HTTPS validation for testing
         // This accepts self-signed certificates and handles certificate chain issues
@@ -110,7 +109,7 @@ class ApimTokenValidationSmokeTest {
     }
 
     @Test
-    void canCallAPIMWithBearerToken() {
+    void canCallWAFWithBearerToken() {
         final String accessToken = getAccessTokenFromEntra();
         assertNotNull(accessToken, "Access token must be retrieved first");
 
@@ -118,10 +117,10 @@ class ApimTokenValidationSmokeTest {
         final Response response =
                 given()
                         .header("Authorization", "Bearer " + accessToken)
-                        .header("Ocp-Apim-Subscription-Key", subscriptionKey)
+                        .header(SUBS_KEY_HEADER, subscriptionKey)
                         .header("Content-Type", "application/json")
                         .when()
-                        .get(apimBaseUrl + slug)
+                        .get(wafBaseUrl + wafSlug)
                         .then()
                         .extract()
                         .response();
@@ -157,14 +156,30 @@ class ApimTokenValidationSmokeTest {
         final Response response =
                 given()
                         .header("Authorization", "Bearer " + expiredToken)
-                        .header("Ocp-Apim-Subscription-Key", subscriptionKey)
+                        .header(SUBS_KEY_HEADER, subscriptionKey)
                         .when()
-                        .get(apimBaseUrl + slug)
+                        .get(wafBaseUrl + wafSlug)
                         .then()
                         .extract()
                         .response();
 
         assertEquals(401, response.statusCode(), "Expected 401 for expired token. Response: " + response.asString());
+    }
+
+    @Test
+    void missingTokenShouldReturn401() {
+        final Response response =
+                given()
+                        .header(SUBS_KEY_HEADER, subscriptionKey)
+                        .when()
+                        .get(wafBaseUrl + wafSlug)
+                        .then()
+                        .log()
+                        .all()
+                        .extract()
+                        .response();
+
+        assertEquals(401, response.statusCode(), "Expected 401 for missing token. Response: " + response.asString());
     }
 
     @Test
@@ -178,9 +193,9 @@ class ApimTokenValidationSmokeTest {
         final Response response =
                 given()
                         .header("Authorization", "Bearer " + badIssuerToken)
-                        .header("Ocp-Apim-Subscription-Key", subscriptionKey)
+                        .header(SUBS_KEY_HEADER, subscriptionKey)
                         .when()
-                        .get(apimBaseUrl + slug)
+                        .get(wafBaseUrl + wafSlug)
                         .then()
                         .extract()
                         .response();

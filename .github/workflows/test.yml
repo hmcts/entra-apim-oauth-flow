@@ -101,22 +101,30 @@ jobs:
       APIM_BASE_URL: ${{ secrets.apim_base_url || inputs.apim_base_url || secrets.APIM_BASE_URL || github.event.inputs.apim_base_url }}
       SUBSCRIPTION_KEY: ${{ secrets.subscription_key || inputs.subscription_key || secrets.SUBSCRIPTION_KEY || github.event.inputs.subscription_key || '' }}
       SLUG: ${{ secrets.slug || inputs.slug || secrets.SLUG || github.event.inputs.slug }}
-    
+      WAF_BASE_URL: ${{ secrets.waf_base_url || inputs.waf_base_url || secrets.WAF_BASE_URL || github.event.inputs.waf_base_url }}
+      WAF_SLUG: ${{ secrets.waf_slug || inputs.waf_slug || secrets.WAF_SLUG || github.event.inputs.waf_slug }}
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Checkout source code
+        uses: actions/checkout@v5
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
-          java-version: '21'
           distribution: 'temurin'
+          java-version: '21'
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: current
+
+      - name: Print env vars (will be masked)
+        run: |
+          echo "TENANT_ID is $TENANT_ID"
 
       - name: Run tests with Gradle
-        run: ./gradlew test --no-daemon
+        run: gradle test
 
       - name: Upload test results
         if: always()

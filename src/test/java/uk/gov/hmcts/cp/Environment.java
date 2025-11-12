@@ -6,7 +6,7 @@ public final class Environment {
 
     private Environment() {}
 
-    public static String require(String key) {
+    public static String require(final String key) {
         return Optional
                 .ofNullable(System.getenv(key))
                 .filter(s -> !s.isBlank())
